@@ -18,4 +18,4 @@ def getWeather(String apiKey, City city) {
 
 City vilnius = new City(country: 'LT', city: 'Vilnius')
 
-println getWeather(API_KEY,vilnius)
+println getWeather(API_KEY, vilnius)

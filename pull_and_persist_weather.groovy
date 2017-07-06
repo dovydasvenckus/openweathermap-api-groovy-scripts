@@ -18,14 +18,14 @@ class DBInfo {
 }
 
 class City {
+  Long id
   String country
   String city
 }
 
 @ToString(includeNames=true)
 class WeatherInfo {
-  String country
-  String city
+  City city
 
   String weatherCondition
   String weatherDescription
@@ -37,8 +37,6 @@ class WeatherInfo {
   Integer visibility
 
   WeatherInfo(Object json) {
-    city = json.name
-    country = json.sys.country
     weatherCondition = json.weather.main
     weatherDescription = json.weather.description
     temperature = json.main.temp
@@ -50,26 +48,38 @@ class WeatherInfo {
 }
 
 WeatherInfo getWeather(String apiKey, City city) {
-  String units = 'metric'
+   String units = 'metric'
 
-  def apiUrlString = "http://api.openweathermap.org/data/2.5/weather?q=${city.city},${city.country}&units=${units}&appid=${apiKey}"
+   def apiUrlString = "http://api.openweathermap.org/data/2.5/weather?q=${city.city},${city.country}&units=${units}&appid=${apiKey}"
 
-  def apiUrl = new URL(apiUrlString)
-  def weatherInfo = new WeatherInfo(new JsonSlurper().parseText(apiUrl.text))
+   def apiUrl = new URL(apiUrlString)
+   def weatherInfo = new WeatherInfo(new JsonSlurper().parseText(apiUrl.text))
+   weatherInfo.city = city
+   return weatherInfo
 }
 
 def persistWeatherInfo(DBInfo dbInfo, WeatherInfo weather) {
   println weather
   def sql = Sql.newInstance(dbInfo.jdbcUrl, dbInfo.username, dbInfo.password)
-  sql.execute('INSERT INTO weather (created, country, city, weather, description, temperature, pressure, humidity, wind_speed, visibility) VALUES (now(), ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [weather.country, weather.city, weather.weatherCondition, weather.weatherDescription, weather.temperature, weather.pressure, weather.humidity, weather.windSpeed, weather.visibility]
+  sql.execute('INSERT INTO weather (created, city_id, weather, description, temperature, pressure, humidity, wind_speed, visibility) VALUES (now(), ?, ?, ?, ?, ?, ?, ?, ?)',
+    [weather.city.id, weather.weatherCondition, weather.weatherDescription, weather.temperature, weather.pressure, weather.humidity, weather.windSpeed, weather.visibility]
   )
+  sql.close()
+}
+
+List<City> getCities(DBInfo dbInfo) {
+  def sql = Sql.newInstance(dbInfo.jdbcUrl, dbInfo.username, dbInfo.password)
+  List<City> cities = []
+  sql.eachRow('SELECT * FROM city') { row ->
+       cities << new City(id: row.id, country: row.country, city: row.city)
+   }
+  sql.close()
+
+  return cities
 }
 
 DBInfo dbInfo = new DBInfo(jdbcUrl: DB_JDBC_URL, username: DB_USERNAME, password: DB_PASSWORD)
 
-City vilnius = new City(country: 'LT', city: 'Vilnius')
-City kretinga = new City(country: 'LT', city: 'Kretinga')
-
-persistWeatherInfo(dbInfo, getWeather(API_KEY,vilnius))
-persistWeatherInfo(dbInfo, getWeather(API_KEY,kretinga))
+getCities(dbInfo).each {
+  persistWeatherInfo(dbInfo, getWeather(API_KEY, it))
+}
