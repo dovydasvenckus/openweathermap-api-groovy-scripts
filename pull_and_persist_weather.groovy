@@ -1,3 +1,5 @@
+#!/usr/bin/env groovy
+
 @GrabConfig(systemClassLoader=true)
 @Grab(group='org.mariadb.jdbc', module='mariadb-java-client', version='2.0.3')
 
@@ -12,29 +14,29 @@ final String DB_USERNAME = System.getenv("WEATHER_DB_username")
 final String DB_PASSWORD = System.getenv("WEATHER_DB_password")
 
 class DBInfo {
-  String jdbcUrl
-  String username
-  String password
+   String jdbcUrl
+   String username
+   String password
 }
 
 class City {
-  Long id
-  String country
-  String city
+   Long id
+   String country
+   String city
 }
 
 @ToString(includeNames=true)
 class WeatherInfo {
-  City city
+   City city
 
-  String weatherCondition
-  String weatherDescription
+   String weatherCondition
+   String weatherDescription
 
-  Integer temperature
-  Integer pressure
-  Integer humidity
-  Integer windSpeed
-  Integer visibility
+   Integer temperature
+   Integer pressure
+   Integer humidity
+   Integer windSpeed
+   Integer visibility
 
   WeatherInfo(Object json) {
     weatherCondition = json.weather.main
@@ -59,27 +61,26 @@ WeatherInfo getWeather(String apiKey, City city) {
 }
 
 def persistWeatherInfo(DBInfo dbInfo, WeatherInfo weather) {
-  println weather
-  def sql = Sql.newInstance(dbInfo.jdbcUrl, dbInfo.username, dbInfo.password)
-  sql.execute('INSERT INTO weather (created, city_id, weather, description, temperature, pressure, humidity, wind_speed, visibility) VALUES (now(), ?, ?, ?, ?, ?, ?, ?, ?)',
-    [weather.city.id, weather.weatherCondition, weather.weatherDescription, weather.temperature, weather.pressure, weather.humidity, weather.windSpeed, weather.visibility]
-  )
-  sql.close()
+   def sql = Sql.newInstance(dbInfo.jdbcUrl, dbInfo.username, dbInfo.password)
+   sql.execute('INSERT INTO weather (created, city_id, weather, description, temperature, pressure, humidity, wind_speed, visibility) VALUES (now(), ?, ?, ?, ?, ?, ?, ?, ?)',
+     [weather.city.id, weather.weatherCondition, weather.weatherDescription, weather.temperature, weather.pressure, weather.humidity, weather.windSpeed, weather.visibility]
+   )
+   sql.close()
 }
 
 List<City> getCities(DBInfo dbInfo) {
-  def sql = Sql.newInstance(dbInfo.jdbcUrl, dbInfo.username, dbInfo.password)
-  List<City> cities = []
-  sql.eachRow('SELECT * FROM city') { row ->
-       cities << new City(id: row.id, country: row.country, city: row.city)
-   }
-  sql.close()
+   def sql = Sql.newInstance(dbInfo.jdbcUrl, dbInfo.username, dbInfo.password)
+   List<City> cities = []
+   sql.eachRow('SELECT * FROM city') { row ->
+        cities << new City(id: row.id, country: row.country, city: row.city)
+    }
+   sql.close()
 
-  return cities
+   return cities
 }
 
 DBInfo dbInfo = new DBInfo(jdbcUrl: DB_JDBC_URL, username: DB_USERNAME, password: DB_PASSWORD)
 
 getCities(dbInfo).each {
-  persistWeatherInfo(dbInfo, getWeather(API_KEY, it))
+   persistWeatherInfo(dbInfo, getWeather(API_KEY, it))
 }
